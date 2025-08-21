@@ -1,0 +1,5 @@
+{
+  "name": "AI Quiz Generator",
+  "description": "An intelligent quiz generator powered by Gemini. Enter any topic and get a custom quiz with multiple-choice and true/false questions. Test your knowledge and see your score instantly.",
+  "requestFramePermissions": []
+}
