@@ -1,11 +1,19 @@
-import { GoogleGenAI, Type, GenerateContentParameters, Part } from "@google/genai";
+import { GoogleGenAI, Type, Part } from "@google/genai";
 import { QuizData } from '../types';
 
-if (!process.env.API_KEY) {
-    throw new Error("API_KEY environment variable not set");
+// Gracefully handle the absence of process.env.API_KEY in browser environments
+// to prevent the app from crashing on load.
+const API_KEY = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
+
+if (!API_KEY) {
+  console.warn(
+    "API_KEY is not set. The application will load, but quiz generation will fail. " +
+    "Please set the API_KEY environment variable in your deployment environment (e.g., Netlify)."
+  );
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: API_KEY || "" });
+
 
 export interface QuizSource {
   topic?: string;
@@ -87,13 +95,17 @@ The quiz should be based on the following context:
 `;
 
 export const generateQuiz = async ({ topic, file }: QuizSource): Promise<QuizData> => {
-  let contents: GenerateContentParameters['contents'];
+  if (!API_KEY) {
+    throw new Error("API key not configured. Please set the API_KEY environment variable for your deployment.");
+  }
+  
+  let contents: string | { parts: Part[] };
   let prompt: string;
 
   if (file) {
     prompt = `${promptTemplate}The context is the content of the provided document.`;
     const filePart = await fileToGenerativePart(file);
-    contents = [prompt, filePart];
+    contents = { parts: [{ text: prompt }, filePart] };
   } else if (topic) {
     prompt = `${promptTemplate}"${topic}"`;
     contents = prompt;
@@ -124,6 +136,9 @@ export const generateQuiz = async ({ topic, file }: QuizSource): Promise<QuizDat
     return quizData;
   } catch (error) {
     console.error("Error generating quiz:", error);
+    if (error instanceof Error && error.message.includes("API key not valid")) {
+       throw new Error("The configured API key is invalid. Please check your deployment environment variables.");
+    }
     throw new Error("Failed to generate quiz. The model may have returned an invalid format. Please try a different topic or file.");
   }
 };
